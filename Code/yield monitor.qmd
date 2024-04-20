@@ -1,0 +1,478 @@
+---
+title: "Yield Stability"
+author: "Sandesh Shrestha"
+format: html
+editor: visual
+---
+#setup
+##Loading Packages
+```{r Setup}
+#| message: false
+#| warning: false
+
+library(readr)
+library(janitor)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+library(viridis)
+library(mapview)
+library(leafsync)
+library(patchwork)
+
+library(gstat)
+library(raster)
+library(stars)
+```
+
+##Importing Data
+```{r}
+yield16 <- read_csv("../Data/Deer Run1 2016 Yield.csv")
+
+yield16
+```
+#EDA
+```{r Summary}
+summary(yield16)
+```
+```{r Yield distribution - Density plot}
+ggplot(yield16,
+       aes(x = DryYield)) +
+  geom_density(fill= "skyblue", alpha =0.5) +
+  geom_rug()
+```
+```{r Speed distribution - Density plot}
+ggplot(yield16,
+       aes(x= speed_mph)) +
+  geom_density(fill = "lightpink", alpha = 0.5)+
+  geom_rug()
+```
+```{r Yield map}
+ggplot(yield16,
+       aes(x = Long,
+           y = Lat)) +
+  geom_point(aes(color = DryYield)) +
+  scale_color_viridis_b() +
+  theme_bw()
+yieldmap_raw
+```
+
+```{r Yield  x Speed}
+ggplot(yield16,
+       aes(x = speed_mph,
+           y = DryYield)) +
+  geom_point() +
+  geom_smooth()
+```
+#Data Wrangling
+```{r}
+yield16_w <- yield16 %>%
+  clean_names() %>%
+  dplyr::select(long, lat,
+                speed_mph,
+                yield_lbac = dry_yield) %>%
+  mutate(yield_kgha = yield_lbac * 0.453592/0.404686,
+         speed_kmh = speed_mph * 1.060934) %>%
+  #filter(yield_lbac != 0) %>%
+  st_as_sf(coords = c("long", "lat")) %>%
+  st_set_crs(value = 4326) %>%
+  st_transform(crs = 6345)
+
+yield16_w
+
+```
+#Maps
+```{r}
+boundary <- read_sf("../Data/boundary/DR1 boundary.shp")%>%
+  st_transform(value = 6345)
+
+boundary
+```
+
+```{r }
+yield16_w %>%
+  filter(yield_lbac <600) %>%
+  ggplot() +
+  geom_sf(aes(color = yield_lbac),
+          size = .1) +
+  scale_color_viridis_b() 
+```
+
+```{r}
+yield16_w %>%
+  filter(yield_lbac == 0 ) %>%
+  ggplot() +
+  geom_sf(aes(color = yield_lbac),
+          size = .1) +
+  scale_color_viridis_b()
+```
+#EDA
+```{r}
+summary(yield16_w)
+```
+## Raw yield quantiles
+```{r}
+lowq_yield <- quantile(yield16_w$yield_lbac, 0.1)
+lowq_yield
+
+upq_yield <- quantile(yield16_w$yield_lbac, 0.99)
+upq_yield
+
+iqr <- upq_yield - lowq_yield
+iqr
+
+miny <- lowq_yield - (iqr * 0.25)
+miny
+
+maxy <- upq_yield + (iqr * 0.25)
+maxy
+
+```
+
+## Min/Max raw yield quantile plot
+```{r}
+ggplot() +
+  geom_density(data = yield16_w,
+               aes(x = yield_lbac)) +
+  geom_vline(xintercept = upq_yield,
+             color = "blue",
+             linetype = 2
+             )+
+  geom_vline(xintercept = lowq_yield,
+             color = "red",
+             linetype = 2
+             )+
+  geom_vline(xintercept = miny,
+             color = "red",
+             linetype = 1
+             ) +
+  geom_vline(xintercept = maxy,
+             color = "blue",
+             linetype = 1
+             )+
+  annotate(geom = "rect",
+           ymin =0,
+           ymax = Inf,
+           xmin = miny,
+           xmax = maxy,
+           alpha = .5,
+           fill = "skyblue"
+  )
+  
+```
+##Filtering min/max raw yield
+```{r}
+yield16_w_yf <- yield16_w %>%
+  filter(yield_lbac >miny &
+           yield_lbac <maxy)
+
+yield16_w_yf %>% 
+  arrange(yield_lbac)
+```
+##Min/Max yield cleaned Summary
+```{r}
+summary(yield16_w_yf$yield_lbac)
+summary(yield16_w$yield_lbac)
+```
+
+#Yield Editor - Min/Max Speed
+##Raw Speed Summary
+```{r}
+summary(yield16_w$speed_mph)
+```
+## Raw Speed quantiles
+```{r}
+lowq_speed <- quantile(yield16_w$speed_mph, 0.08)
+lowq_speed
+
+upq_speed <- quantile(yield16_w$speed_mph, 0.99)
+upq_speed
+
+iqr <- upq_speed - lowq_speed
+iqr
+
+minv <- lowq_speed - (iqr * 0.18)
+minv
+
+maxv <- upq_speed + (iqr * 0.18)
+maxv
+
+```
+
+## Min/Max raw speed quantile plot
+```{r}
+ggplot() +
+  geom_density(data = yield16_w,
+               aes(x = speed_mph)) +
+  geom_vline(xintercept = upq_speed,
+             color = "blue",
+             linetype = 2
+             )+
+  geom_vline(xintercept = lowq_speed,
+             color = "red",
+             linetype = 2
+             )+
+  geom_vline(xintercept = minv,
+             color = "red",
+             linetype = 1
+             ) +
+  geom_vline(xintercept = maxv,
+             color = "blue",
+             linetype = 1
+             )+
+  annotate(geom = "rect",
+           ymin =0,
+           ymax = Inf,
+           xmin = minv,
+           xmax = maxv,
+           alpha = .5,
+           fill = "lightpink"
+  )
+  
+```
+##Filtering min/max raw speed
+```{r}
+yield16_w_sf <- yield16_w %>%
+  filter(speed_mph >minv &
+           speed_mph <maxv)
+
+yield16_w_sf
+```
+##Min/Max speed cleaned Summary
+```{r}
+summary(yield16_w_sf$speed_mph)
+summary(yield16_w$speed_mph)
+```
+
+
+##Field Boundary Plot
+### Buffer Boundary
+```{r}
+buffer <- boundary %>% 
+  st_buffer(dist = -40)
+
+yieldmap_raw +
+  geom_sf(data = boundary,
+          fill = NA) +
+  geom_sf(data = buffer,
+          color = "orange",
+          fill = NA,
+          linewidth = 1
+          )
+```
+##Filtering Position
+```{r}
+yield16_w_pf <- yield16_w_sf %>% 
+  st_intersection(buffer)
+
+yield16_w_pf %>% 
+  arrange(yield_lbac)
+```
+##Position Yield Cleaned Summary
+```{r}
+summary(yield16_w_pf$yield_lbac)
+```
+# Raw vs Cleaned Data
+## Sumamry Statistics
+```{r}
+#Raw
+summary_raw <- yield16_w %>%
+  summarise( n = length(yield_lbac),
+             min = min(yield_lbac),
+             mean = mean(yield_lbac),
+             max = max(yield_lbac),
+             sd = sd(yield_lbac),
+             cv= (sd/mean) * 100
+             ) %>%
+  mutate(data = "raw") %>%
+  dplyr::select(data, everything())
+
+#Filtered
+summary_filtered <- yield16_w_pf %>%
+  summarise(n = length(yield_lbac),
+            min = min(yield_lbac),
+            mean = mean(yield_lbac),
+            max = max(yield_lbac),
+            sd = sd(yield_lbac),
+            cv = (sd/mean)*100
+            ) %>%
+  mutate(data = "clean") %>%
+  dplyr::select(data, everything())
+
+#Combined
+summary_raw %>% 
+  bind_rows(summary_filtered)
+
+```
+
+## Density Plot
+```{r}
+ggplot() +
+  geom_density(data = yield16_w,
+               aes(x= yield_lbac),
+               fill = "blue",
+               alpha = 1
+               ) +
+  geom_density(data = yield16_w_pf,
+               aes(x = yield_lbac),
+               fill = "yellow",
+               alpha = .3)
+```
+## Raw Yield Map
+```{r}
+yieldmap_raw <- ggplot(yield16_w) +
+  geom_sf(aes(color = yield_lbac),
+          size = .1) +
+   labs(title = "Raw Yield Map",
+       vjust = 0.5) +
+  theme(axis.text = element_blank(),  # Remove axis text
+        axis.ticks = element_blank(), # Remove axis ticks
+        axis.title = element_text(hjust = 3), # Remove axis title
+        panel.grid = element_blank(), # Remove panel grid
+        panel.border = element_blank()) + # Remove panel border
+  scale_color_viridis_b()
+ 
+
+yieldmap_raw
+```
+
+## Cleaned Yield Map
+```{r}
+yieldmap_cleaned <- ggplot() +
+  geom_sf(data = yield16_w_pf,
+          aes(color = yield_lbac),
+          size = .1) +
+  labs(title = "Cleaned Yield Map") +
+  scale_color_viridis_b() +
+  theme(axis.text = element_blank(),  # Remove axis text
+        axis.ticks = element_blank(), # Remove axis ticks
+        axis.title = element_blank(), # Remove axis title
+        panel.grid = element_blank(), # Remove panel grid
+        panel.border = element_blank()) # Remove panel border
+
+yieldmap_cleaned
+```
+
+```{r}
+yieldmap_clean_int <- yield16_w_pf %>%
+  filter(yield_lbac !=0) %>% 
+  mapview(zcol = "yield_lbac",
+        col.regions = viridis(3),
+        alpha.regions = 1,
+        cex = .1,
+        lwd = 0,
+        map.types = "Esri.WorldImagery"
+)
+
+yieldmap_clean_int
+```
+
+## Raw vs Cleaned yield map
+```{r}
+yieldmap_raw + yieldmap_cleaned
+```
+#Exporting cleaned version
+```{r}
+write_sf(yield16_w_pf,
+         "../Output/yield_16_clean.geojson",
+         delete_dsn = T)
+```
+
+# Yield Interpolation
+```{r}
+yield_c <- yield16_w_pf
+yield_c
+```
+
+## Grid
+```{r}
+grid_v <-  st_make_grid(boundary,
+                        cellsize = 10
+                        )
+grid_v
+```
+```{r grid vector plot}
+yieldmap_cleaned +
+  geom_sf(data = grid_v,
+          alpha = 0.5,
+          fill = NA,
+          size = .1)
+
+```
+## Rasterize our vector grid
+```{r grid_r}
+grid_r <- grid_v %>%
+  st_as_sf() %>% 
+  st_rasterize(dx = 10,
+               dy = 10) %>% 
+  st_crop(boundary)
+
+grid_r
+```
+```{r}
+yieldmap_cleaned +
+  geom_stars(data = grid_r,
+             alpha = .6)
+```
+## Inverse Distance Weight (IDW) 
+```{r}
+idw_mod <- gstat(formula = yield_lbac ~1,
+                 data = yield_c
+                 )
+idw_mod
+```
+```{r idw pred}
+idw_pred <- predict(idw_mod,
+                    grid_r)
+idw_pred
+```
+```{r idw_pred plot}
+ggplot() +
+  geom_stars(data = idw_pred) +
+  scale_fill_viridis() +
+  geom_sf(data = boundary,
+          fill = NA) +
+  geom_sf(data = grid_v,
+          alpha = .5,
+          fill = NA,
+          size = .1)
+```
+```{r idw_pred_v}
+idw_pred_v <- idw_pred %>% 
+  st_as_sf(as_points = F,
+           merge = F) %>% 
+  dplyr::select(ipyield_lbac = var1.pred)
+
+idw_pred_v
+```
+
+```{r idw_pred_v plot}
+ggplot()+
+  geom_sf(data = idw_pred_v,
+          aes(fill = ipyield_lbac),
+          color = NA) +
+  scale_fill_viridis_c() +
+  theme_void()
+```
+
+```{r interpolated distribution}
+ggplot()+
+  geom_density(data = idw_pred_v,
+               aes(x = ipyield_lbac)
+               ) +
+  geom_density(data = yield_c,
+               aes(x = yield_lbac),
+               color = "blue")
+
+```
+# Exporting Interpolated Data
+```{r Interpolated Yield Data}
+write_sf(idw_pred_v,
+         "../Output/yield_interpolated.geojson",
+         delete_dsn = T)
+```
+
+
+
+
