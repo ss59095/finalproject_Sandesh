@@ -1,0 +1,199 @@
+---
+title: "Soil ECa"
+author: "Sandesh Shrestha"
+format: html
+editor: visual
+---
+
+#Setup
+
+```{r Setup, message=FALSE, warning=FALSE}
+# Packages
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(readr)
+library(sf) #vector manipulation
+library(ggplot2)
+library(viridis)
+library(ggthemes)
+library(gstat) #IDW
+library(stars) #raster manipulation
+library(terra) #topographical variables
+library(patchwork) #combining multiple plots  
+library(tibble) #rownames to column
+```
+
+```{r}
+mytheme_map <- theme_map() +
+  theme(legend.position = "right",
+        panel.background = element_rect(fill = "white",
+                                        color = NA),
+        plot.background = element_rect(fill = "white",
+                                       color = NA),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12)
+        )
+```
+
+# Reading Data
+```{r reading ECa data}
+eca <- read.csv("../Data/Deer Run1 Soil EC Data.csv")
+eca
+```
+
+# Wrangling
+```{r}
+eca_w <- eca %>% 
+  clean_names() %>% 
+  dplyr::select(x = longitude,
+                y = latitude,
+                deep_eca,
+                shallow_eca) %>%
+  st_as_sf(coords = c("x", "y")) %>%
+  st_set_crs(value = 4326) %>% 
+  st_transform(crs = 6345)
+
+eca_w
+```
+
+# EDA
+```{r}
+eca_w %>%
+  ggplot()+
+  geom_sf(aes(color = shallow_eca),
+          size = .5) +
+  scale_color_viridis_b() +
+  mytheme_map
+```
+```{r}
+eca_w %>%
+  ggplot()+
+  geom_sf(aes(color = deep_eca),
+          size = .5) +
+  scale_color_viridis_b() +
+  mytheme_map
+```
+#Grid
+
+```{r}
+boundary <- read_sf("../Data/boundary/DR1 boundary.shp") %>% 
+  st_transform(crs = 6345)
+```
+
+```{r grid_r}
+grid_r <- boundary %>% 
+  st_make_grid(cellsize = 10) %>% 
+  st_as_sf() %>% 
+  st_rasterize(dx = 10,
+               dy = 10) %>% 
+  st_crop(boundary)
+grid_r
+
+ggplot()+
+  geom_stars(data = grid_r) +
+  mytheme_map
+```
+
+# Interpolation
+## Shallow ECa
+```{r}
+s_eca_idw_mod <- gstat(formula = shallow_eca ~ 1,
+                       data = eca_w)
+s_eca_idw_mod
+```
+```{r}
+s_eca_idw_pred <-  predict(s_eca_idw_mod,
+                           grid_r)
+s_eca_idw_pred
+```
+```{r Shallow ECa Map}
+shallow_eca_map <- ggplot() +
+  geom_stars(data = s_eca_idw_pred) +
+  scale_fill_viridis_c() +
+  geom_sf(data =  boundary,
+          fill = NA) +
+  labs(fill = "ECa\n(dS/m)",
+       title = "Shallow ECa Map") +
+  mytheme_map
+
+shallow_eca_map
+```
+
+## Deep ECa
+```{r}
+deep_eca_idw_mod <- gstat(formula = deep_eca ~ 1,
+                          data = eca_w)
+
+deep_eca_idw_mod
+```
+
+```{r}
+deep_eca_idw_pred <- predict(deep_eca_idw_mod,
+                             grid_r)
+deep_eca_idw_pred
+```
+```{r}
+deep_eca_map <- ggplot() +
+  geom_stars(data = deep_eca_idw_pred) +
+  scale_fill_viridis_c() +
+  geom_sf(data = boundary,
+          fill = NA) +
+  labs(fill = "ECa\n (dS/m)",
+       title = "Deep ECa Map")+
+  mytheme_map
+
+deep_eca_map
+```
+## Plotting all together
+
+```{r}
+shallow_eca_map + deep_eca_map
+
+ggsave("../Output/soileca.png",
+       width = 6,
+       height = 3)
+```
+
+# Grid Extraction
+
+```{r Shallow}
+shallow_eca_v <-  s_eca_idw_pred %>% 
+  st_as_sf(as.points = F,
+           merge = F) %>% 
+  dplyr::select(shallow_eca = var1.pred)
+
+shallow_eca_v
+```
+
+```{r Deep}
+deep_eca_v <-  deep_eca_idw_pred %>% 
+  st_as_sf(as.points = F,
+           merge = F) %>% 
+  dplyr::select(deep_eca = var1.pred)
+
+deep_eca_v
+```
+
+# Merging ECa layers
+
+```{r ECa_v}
+eca_v <- shallow_eca_v %>%
+  st_join(deep_eca_v,
+          join = st_equals,
+          left = T
+          )
+
+eca_v
+```
+
+
+# Exporting
+
+```{r Exporting}
+write_sf(eca_v,
+         "../Output/eca_v.geojson",
+         delete_dsn = T
+         )
+```
+
