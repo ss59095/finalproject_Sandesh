@@ -283,7 +283,7 @@ terrain_v
 # Exporting
 ```{r}
 write_sf(terrain_v,
-         "../Data/terrain_v.geojson",
+         "../Output//terrain_v.geojson",
          delete_dsn = T)
 ```
 
