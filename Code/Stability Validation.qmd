@@ -1,0 +1,78 @@
+---
+title: "Stability Validation"
+author: "Sandesh Shrestha"
+format: html
+editor: visual
+---
+
+# Setup
+
+```{r, message=FALSE, warning=FALSE}
+#packages
+library(dplyr)
+library(tidyr)
+library(readr)
+library(sf)
+library(ggplot2)
+library(viridis)
+library(ggthemes)
+library(patchwork)
+library(forcats)
+```
+
+```{r defining map theme}
+mytheme_map <- theme_map() +
+  theme(legend.position = "right",
+        panel.background = element_rect(fill = "white",
+                                        color = NA),
+        plot.background = element_rect(fill = "white",
+                                       color = NA),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12)
+        )
+
+```
+
+
+# Data Import
+
+```{r yield}
+sty_v <- read_sf("../Output/sy_all.geojson")
+
+sty_v
+```
+```{r terrain}
+terrain_v <-read_sf("../Output/terrain_v.geojson")
+terrain_v
+```
+
+```{r soil eca}
+eca_v <-  read_sf("../Output/eca_v.geojson")
+eca_v
+```
+```{r}
+boundary <- read_sf("../Data/boundary/DR1 boundary.shp") %>% 
+  st_transform(crs = 6345)
+
+boundary
+```
+# Combining all the data together
+
+```{r}
+all_v <-  sty_v %>% 
+  st_join(terrain_v,
+          join = st_equals,
+          left = T) %>% 
+  st_join(eca_v,
+          join = st_equals,
+          left = T) %>% 
+  relocate(geometry, .after = last_col())
+
+all_v
+```
+# Exporting all Data
+```{r}
+write_sf(all_v,
+         "../Output/all_v.geojson")
+```
+

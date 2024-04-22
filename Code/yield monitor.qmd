@@ -24,6 +24,8 @@ library(patchwork)
 library(gstat)
 library(raster)
 library(stars)
+library(ggthemes)
+library(tibble)
 ```
 
 ##Importing Data
@@ -170,14 +172,14 @@ yield16_w_yf <- yield16_w %>%
 yield16_w_yf %>% 
   arrange(yield_lbac)
 ```
-##Min/Max yield cleaned Summary
+## Min/Max yield cleaned Summary
 ```{r}
 summary(yield16_w_yf$yield_lbac)
 summary(yield16_w$yield_lbac)
 ```
 
-#Yield Editor - Min/Max Speed
-##Raw Speed Summary
+# Yield Editor - Min/Max Speed
+## Raw Speed Summary
 ```{r}
 summary(yield16_w$speed_mph)
 ```
@@ -252,14 +254,6 @@ summary(yield16_w$speed_mph)
 buffer <- boundary %>% 
   st_buffer(dist = -40)
 
-yieldmap_raw +
-  geom_sf(data = boundary,
-          fill = NA) +
-  geom_sf(data = buffer,
-          color = "orange",
-          fill = NA,
-          linewidth = 1
-          )
 ```
 ##Filtering Position
 ```{r}
@@ -474,5 +468,70 @@ write_sf(idw_pred_v,
 ```
 
 
+# Yield Stability
 
+```{r}
+sy <- read_sf("../Output/yield_interpolated.geojson") %>% 
+  mutate(medianyield_lbac = median(ipyield_lbac)) %>% 
+  mutate(sy_median = round(ipyield_lbac/medianyield_lbac * 100, 1)) %>% 
+  dplyr::select(sy_median, geometry)
+
+sy
+```
+
+```{r}
+summary(sy)
+
+```
+
+```{r}
+sy_class <- sy %>% 
+  mutate(stclass = case_when(
+    sy_median < 88.7 ~ "low",
+    sy_median >=88.7 & sy_median <=105.2 ~ "medium",
+    sy_median > 105.2 ~ "high"
+  ))
+
+sy_class
+```
+
+```{r}
+sy_class %>% 
+  mutate(N = nrow(.)) %>% 
+  group_by(stclass, N) %>% 
+  tally()
+```
+
+```{r}
+sy_class_map <- ggplot() +
+  geom_sf(data = sy_class,
+          aes(fill = stclass),
+          color = NA
+          ) +
+  scale_fill_viridis_d(option = "D") +
+  theme_map() +
+  theme(legend.position = "right"
+  )
+  
+sy_class_map
+```
+
+# Classes Proportion
+
+```{r}
+  sy_class %>% 
+  mutate(N = nrow(.)) %>% 
+  group_by(stclass, N) %>% 
+  tally() %>% 
+  mutate(prop = (n/N) *100)
+```
+
+# Exporting
+
+```{r}
+write_sf(sy_class,
+         "../Output/sy_all.geojson",
+         delete_dsn = T
+         )
+```
 
