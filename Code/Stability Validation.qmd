@@ -37,9 +37,9 @@ mytheme_map <- theme_map() +
 # Data Import
 
 ```{r yield}
-sty_v <- read_sf("../Output/sy_all.geojson")
+yield_int <- read_sf("../Output/yield_interpolated.geojson")
 
-sty_v
+yield_int
 ```
 ```{r terrain}
 terrain_v <-read_sf("../Output/terrain_v.geojson")
@@ -59,7 +59,7 @@ boundary
 # Combining all the data together
 
 ```{r}
-all_v <-  sty_v %>% 
+all_v <-  yield_int %>% 
   st_join(terrain_v,
           join = st_equals,
           left = T) %>% 
@@ -75,4 +75,98 @@ all_v
 write_sf(all_v,
          "../Output/all_v.geojson")
 ```
+
+
+#EDA
+```{r}
+summary(all_v)
+```
+# Map 
+
+```{r Yield Map}
+yield_map <- ggplot() +
+  geom_sf(data = all_v,
+          aes(fill = ipyield_lbac),
+          color = NA) +
+  scale_fill_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA) +
+  mytheme_map
+
+yield_map
+```
+```{r Elevation Map}
+elev_map <-  ggplot()+
+  geom_sf(data = all_v,
+          aes(fill = elev_m),
+          color = NA) +
+  scale_fill_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA) +
+  mytheme_map
+
+elev_map
+```
+```{r Slope Map}
+slope_map <- ggplot()+
+  geom_sf(data  = all_v,
+          aes(fill = slope),
+          color = NA) +
+  scale_fill_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA)+
+  mytheme_map
+
+slope_map
+```
+```{r Aspect Map}
+aspect_map <-  ggplot() +
+  geom_sf(data = all_v,
+          aes(fill = aspect),
+          color = NA) +
+  scale_fill_viridis_b()+
+  geom_sf(data = boundary,
+          fill = NA) +
+  mytheme_map
+
+aspect_map
+```
+
+
+
+```{r Shallow ECa Map}
+sh_eca_map <- ggplot() +
+  geom_sf(data = all_v,
+          aes(fill = shallow_eca),
+          color = NA) +
+  scale_fill_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA)+
+  mytheme_map
+
+sh_eca_map
+```
+```{r Deep ECa Map}
+dp_eca_map <- ggplot() +
+  geom_sf(data = all_v,
+          aes(fill = deep_eca),
+          color = NA) +
+  scale_fill_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA)+
+  mytheme_map
+
+dp_eca_map
+```
+
+```{r All Maps}
+(yield_map + sh_eca_map + dp_eca_map) /
+  (elev_map + slope_map + aspect_map)
+
+ggsave("../Output/allmaps.png",
+       width = 10,
+       height = 5
+       )
+```
+
 
