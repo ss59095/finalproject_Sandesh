@@ -149,22 +149,42 @@ You will be graded based on:
 # D. Questions  
 Once you get started and as you progress in the project tasks, Natalie is following closely your work and has multiple questions for you:
 
-## 1. What is the number of observations, minimum, mean, maximum, and standard deviation for the **raw** yield data (in bu/ac)? Show Natalie a plot with the density distribution of the **raw** yield data.
+## 1. What is the number of observations, minimum, mean, maximum, and standard deviation for the **raw** yield data (in bu/ac)? Show Natalie a plot with the density distribution of the **raw** yield data.  
+The number of observation for raw yield data (bu/ac) is 73574 with minimum value 0 bu/ac, mean 161.bu/ac, maximum 1785 bu/ac and standard deviation 103.1483 bu/ac. 
+
+```{r}
+summary(yield16_w$yield_buac)
+```
+![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cuf2feyka9yzl/000021.png)
 
 
 ## 2. How many meters of negative buffer did you use for this field? Was that enough to remove low yielding data points near the field border? Show Natalie a map with the field border, points colored by raw yield data, and the buffer outline. 
+I used negative buffer of 40 meters for the field. I decided to go for the 40 meters after the hit and trial methods of different distance. The 40 meters buffer was able to remove most of the low yielding boundary points but wasn't able to remove them entirely. Greater value than 40 can be used for removing them entirely but in that case it would remove the good quality raw yield points from north parts of the field.
 
+![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cq7dvtudgzz76/000009.png)
 
 ## 3. What is the number of observations, minimum, mean, maximum, and standard deviation for the **cleaned** yield data (in bu/ac)? Show Natalie a plot with the density distribution of the **cleaned** yield data.  
+The number of observation for cleaned data 68358
+minimum : 0 bu/ac  
+maximum : 361.1 bu/ac 
+Mean    : 168 bu/ac
+Standard Deviation :  
 
+![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/claaoj4my9fsm/000010.png)
 
 ## 4. When creating a grid for interpolation, what grid cell size did you use? Why did you select this size?  
+I used the grid with cell size of 10*10 meters. It isnot a universal standard but it is the default setting in gstat package which we are using here to interpolate the data.
+
+And a 10x10 cell size provides a good balance between spatial resolution and computational efficiency. Larger cell sizes can lead to a loss of spatial detail, while smaller cell sizes can increase the computational burden.  
 
 ## 5. Show Natalie a map of the cleaned interpolated yield data (include the field boundary).  
+![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cgev9vll2n33i/000029.png)
 
 ## 6. Show Natalie a map of the interpolated terrain variables (include the field boundary).  
+![](http://127.0.0.1:47015/chunk_output/s/89E42CF7/cdujn69597oj8/000016.png)
 
-## 7. Show Natalie a map of the interpolated soil ECa variables (include the field boundary).  
+## 7. Show Natalie a map of the interpolated soil ECa variables (include the field boundary). 
+![](http://127.0.0.1:47015/chunk_output/s/B48A2E57/ck0b29txbhk1k/000008.png)
 
 ## 8. How many clusters/zones did you decide that this field needs? What metric did you use to make this decision? (check the `Code tips` section below for a note on this).  
 

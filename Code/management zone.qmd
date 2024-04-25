@@ -1,0 +1,196 @@
+---
+title: "Management Zone"
+author: "Sandesh Shrestha"
+format: html
+editor: visual
+---
+
+# Setup
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(sf) #vector manipulation
+library(ggplot2)
+library(viridis)
+library(ggthemes)
+library(patchwork) #combining multiple plots
+library(factoextra)
+library(NbClust)
+library(ggpubr)
+library(stars)
+library(starsExtra)
+library(gstat)
+```
+
+# Import Data
+```{r}
+all_v <- read_sf("../Output/all_v.geojson")
+all_v
+```
+
+```{r}
+boundary <- read_sf("../Data/boundary/DR1 boundary.shp") %>% 
+  st_transform(crs = 6345)
+
+boundary
+```
+```{r}
+all_v_n <- all_v %>% 
+  drop_na() %>% 
+  dplyr::select(elev_m:deep_eca,
+                - flowdir,
+                - aspect) %>% 
+  mutate(across(where(is.numeric),
+                ~scale(.x)
+                ))
+all_v_n
+```
+
+# Defining K 
+```{r}
+mod_km <- kmeans(all_v_n %>% 
+                   st_drop_geometry(),
+                 centers = 4,
+                 nstart = 10
+                 )
+mod_km
+```
+```{r finding k - wss method}
+fviz_nbclust(all_v_n %>% 
+             st_drop_geometry(),
+             method = "wss",
+             k.max = 10,
+             FUNcluster = kmeans)
+```
+```{r finding k - silhouette method}
+# Silhouette width
+fviz_nbclust(all_v_n %>%
+               st_drop_geometry(), 
+             method = "s",
+             k.max = 10,
+             FUNcluster = kmeans) 
+
+```
+
+let's go with 4 clusters
+```{r}
+mod_km4 <-  kmeans(all_v_n %>% 
+                     st_drop_geometry(),
+                   centers = 2,
+                   nstart = 10)
+mod_km4
+```
+
+```{r}
+zone_df <- all_v_n %>% 
+  mutate(cluster = mod_km4$cluster,
+         cluster = factor(cluster))
+
+zone_df %>% 
+  group_by(cluster) %>% 
+  tally()
+```
+
+```{r Cluster Map}
+ggplot() +
+  geom_sf(data = zone_df,
+          aes(fill = cluster),
+          color = NA) +
+  scale_fill_colorblind() +
+  geom_sf(data = boundary,
+          fill = NA) +
+  labs(title = "Unsoothed zones") +
+  theme_map()+
+  theme(plot.title = element_text(color = "blue",
+                                  hjust = 0.5))
+```
+```{r}
+grid_r <-  boundary %>% 
+  st_make_grid(cellsize = 10) %>% 
+  st_as_sf() %>% 
+  st_rasterize(dx = 10,
+               dy = 10) %>% 
+  st_crop(boundary)
+grid_r
+```
+```{r}
+zone_s <- zone_df %>% 
+  dplyr::select(cluster) %>% 
+  st_cast("POINT") %>% 
+  st_sfc2xy() %>% 
+  st_as_stars() %>% 
+  focal2(w = matrix(1, 13, 13),
+         fun = "mean",
+         na.rm = T
+         ) %>% 
+  st_as_sf() %>% 
+  gstat(formula = cluster ~ 1,
+        data = .) %>% 
+  predict(grid_r) %>% 
+  st_as_sf() %>% 
+  mutate(cluster = round(var1.pred, 0)) %>% 
+  mutate(cluster_f = factor(cluster))
+
+zone_s  
+```
+```{r}
+zone_s %>%
+  ggplot()+
+  geom_sf(aes(fill = cluster_f), color = NA)+ 
+    geom_sf(data = boundary, fill=NA)+
+  scale_fill_colorblind()+
+  labs(title="Smoothed zones, 13x13, mean")+
+  theme_map()+
+  theme(plot.title = element_text(color="blue"))
+
+ggsave("../output/zonesmoothed_13x13_mean.png",
+       width = 3, 
+       height = 4)
+```
+```{r}
+zone_s_df <-  all_v %>% 
+  st_join(zone_s,
+          join = st_equals,
+          left = T) %>% 
+  dplyr::select(-flowdir, -aspect, -var1.pred, -var1.var, -cluster)
+
+zone_s_df
+```
+
+```{r}
+zone_s_df %>% 
+  pivot_longer(cols = elev_m:deep_eca) %>%
+  ggplot(aes(x=cluster_f, y=value, color=cluster_f))+
+  geom_boxplot(show.legend = F)+
+  scale_color_colorblind()+
+  facet_wrap(~name, scales="free_y", ncol=3)+
+  stat_compare_means(label = "p.format",
+                     hjust = -.1,
+                     vjust=1)+
+  theme(legend.position = "none")
+```
+
+```{r}
+zone_s_df %>% 
+  pivot_longer(cols = ipyield_lbac) %>% 
+  ggplot(aes(x=cluster_f, y=value, color=cluster_f))+
+  geom_boxplot(show.legend = F)+
+  scale_color_colorblind()+
+  facet_wrap(~name, scales="free_y", ncol=3)+
+  stat_compare_means(label = "p.format",
+                     hjust = -.1,
+                     vjust=1)+
+  theme(legend.position = "none")
+```
+# Exporting clusters
+```{r}
+zone_s_df %>% 
+  mutate(zone = case_when(
+    cluster_f == "1" ~ "high",
+    cluster_f == "2" ~ "low"
+  )) %>% 
+  write_sf("../Output/zone_s.geojson",
+           delete_dsn = T)
+```
+

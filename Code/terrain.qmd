@@ -106,8 +106,8 @@ elev_map <- ggplot() +
   geom_sf(data = boundary, 
           fill = NA,
           size = 10) +
-  scale_fill_viridis_b(option = "E") +
-  labs(fill = "Elevation (m)") +
+  scale_fill_viridis_b(breaks = c(56,57, 58, 59, 60, 61, 62, 63, 64, 65)) +
+  labs(fill = "Elev\n(m)") +
   mytheme_map
 
 elev_map
@@ -126,7 +126,7 @@ slope <- idw_pred %>%
                   st_set_crs(value = 6345) %>% 
                   mutate(pct = tan(slope) * 100) %>%
                   dplyr::select(pct)
-                  )
+                  
 
 slope
 ```
@@ -136,7 +136,7 @@ slope_map <- ggplot() +
   geom_stars(data = slope) +
   geom_sf(data = boundary,
           fill = NA) +
-  scale_fill_viridis_b(option = "E") +
+  scale_fill_viridis_b() +
   labs(fill = "slope\n(%)")+
   mytheme_map +
   theme(legend.position = "right")
@@ -160,8 +160,7 @@ aspect_map <- ggplot() +
   geom_stars(data = aspect) +
   geom_sf(data = boundary,
           fill = NA) +
-  scale_fill_viridis_b(option = "E",
-                       breaks = c(22.5,
+  scale_fill_viridis_b(breaks = c(22.5,
                                   67.5,
                                   112.5,
                                   157.5,
@@ -193,7 +192,7 @@ flowdir_map <- ggplot() +
   geom_stars(data = flowdir) +
   geom_sf(data = boundary,
           fill = NA)+
-  scale_fill_viridis_b(option = "E",
+  scale_fill_viridis_b(
                        breaks = c(1, 2,
                                   4, 8,
                                   16, 32,

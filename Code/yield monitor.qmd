@@ -28,6 +28,18 @@ library(ggthemes)
 library(tibble)
 ```
 
+```{r}
+mytheme_map <- theme_map() +
+  theme(legend.position = "right",
+        panel.background = element_rect(fill = "lightgrey",
+                                        color = NA),
+        plot.background = element_rect(fill = "lightgrey",
+                                       color = NA),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12)
+        )
+```
+
 ##Importing Data
 ```{r}
 yield16 <- read_csv("../Data/Deer Run1 2016 Yield.csv")
@@ -38,11 +50,17 @@ yield16
 ```{r Summary}
 summary(yield16)
 ```
+
 ```{r Yield distribution - Density plot}
 ggplot(yield16,
        aes(x = DryYield)) +
   geom_density(fill= "skyblue", alpha =0.5) +
-  geom_rug()
+  geom_rug() +
+  labs(title = "Raw Yield Density Distribution",
+       x = "Yield (bu/ac)",
+       y = "Density") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+  
 ```
 ```{r Speed distribution - Density plot}
 ggplot(yield16,
@@ -56,8 +74,7 @@ ggplot(yield16,
            y = Lat)) +
   geom_point(aes(color = DryYield)) +
   scale_color_viridis_b() +
-  theme_bw()
-yieldmap_raw
+mytheme_map
 ```
 
 ```{r Yield  x Speed}
@@ -73,10 +90,10 @@ yield16_w <- yield16 %>%
   clean_names() %>%
   dplyr::select(long, lat,
                 speed_mph,
-                yield_lbac = dry_yield) %>%
-  mutate(yield_kgha = yield_lbac * 0.453592/0.404686,
+                yield_buac = dry_yield) %>%
+  mutate(yield_kgha = yield_buac * 0.453592/0.404686,
          speed_kmh = speed_mph * 1.060934) %>%
-  #filter(yield_lbac != 0) %>%
+  #filter(yield_buac != 0) %>%
   st_as_sf(coords = c("long", "lat")) %>%
   st_set_crs(value = 4326) %>%
   st_transform(crs = 6345)
@@ -94,31 +111,29 @@ boundary
 
 ```{r }
 yield16_w %>%
-  filter(yield_lbac <600) %>%
+  filter(yield_buac <400) %>%
   ggplot() +
-  geom_sf(aes(color = yield_lbac),
-          size = .1) +
-  scale_color_viridis_b() 
-```
-
-```{r}
-yield16_w %>%
-  filter(yield_lbac == 0 ) %>%
-  ggplot() +
-  geom_sf(aes(color = yield_lbac),
-          size = .1) +
-  scale_color_viridis_b()
+  geom_sf(aes(color= yield_buac),
+          size = .4) +
+  scale_color_viridis_b() +
+  geom_sf(data = boundary,
+          fill = NA,
+          size = 2) +
+  geom_sf(data = buffer,
+          fill = NA,
+          color = "red")+
+  mytheme_map
 ```
 #EDA
 ```{r}
-summary(yield16_w)
+summary(yield16_w$yield_buac)
 ```
 ## Raw yield quantiles
 ```{r}
-lowq_yield <- quantile(yield16_w$yield_lbac, 0.1)
+lowq_yield <- quantile(yield16_w$yield_buac, 0.1)
 lowq_yield
 
-upq_yield <- quantile(yield16_w$yield_lbac, 0.99)
+upq_yield <- quantile(yield16_w$yield_buac, 0.99)
 upq_yield
 
 iqr <- upq_yield - lowq_yield
@@ -136,7 +151,7 @@ maxy
 ```{r}
 ggplot() +
   geom_density(data = yield16_w,
-               aes(x = yield_lbac)) +
+               aes(x = yield_buac)) +
   geom_vline(xintercept = upq_yield,
              color = "blue",
              linetype = 2
@@ -166,16 +181,16 @@ ggplot() +
 ##Filtering min/max raw yield
 ```{r}
 yield16_w_yf <- yield16_w %>%
-  filter(yield_lbac >miny &
-           yield_lbac <maxy)
+  filter(yield_buac >miny &
+           yield_buac <maxy)
 
 yield16_w_yf %>% 
-  arrange(yield_lbac)
+  arrange(yield_buac)
 ```
 ## Min/Max yield cleaned Summary
 ```{r}
-summary(yield16_w_yf$yield_lbac)
-summary(yield16_w$yield_lbac)
+summary(yield16_w_yf$yield_buac)
+summary(yield16_w$yield_buac)
 ```
 
 # Yield Editor - Min/Max Speed
@@ -235,7 +250,7 @@ ggplot() +
 ```
 ##Filtering min/max raw speed
 ```{r}
-yield16_w_sf <- yield16_w %>%
+yield16_w_sf <- yield16_w_yf %>%
   filter(speed_mph >minv &
            speed_mph <maxv)
 
@@ -243,8 +258,18 @@ yield16_w_sf
 ```
 ##Min/Max speed cleaned Summary
 ```{r}
-summary(yield16_w_sf$speed_mph)
+summary(yield16_w_sf$yield_buac)
 summary(yield16_w$speed_mph)
+```
+```{r}
+ggplot(yield16_w_sf,
+       aes(x = yield_buac)) +
+  geom_density(fill= "skyblue", alpha =0.5) +
+  geom_rug() +
+  labs(title = "Clean Yield Density Distribution",
+       x = "Yield (bu/ac)",
+       y = "Density") +
+  theme(plot.title = element_text(hjust = 0.5)) 
 ```
 
 
@@ -255,40 +280,42 @@ buffer <- boundary %>%
   st_buffer(dist = -40)
 
 ```
-##Filtering Position
+
+
 ```{r}
 yield16_w_pf <- yield16_w_sf %>% 
   st_intersection(buffer)
 
 yield16_w_pf %>% 
-  arrange(yield_lbac)
+  arrange(yield_buac)
 ```
 ##Position Yield Cleaned Summary
 ```{r}
-summary(yield16_w_pf$yield_lbac)
+summary(yield16_w_pf$yield_buac)
 ```
+
 # Raw vs Cleaned Data
 ## Sumamry Statistics
 ```{r}
 #Raw
 summary_raw <- yield16_w %>%
-  summarise( n = length(yield_lbac),
-             min = min(yield_lbac),
-             mean = mean(yield_lbac),
-             max = max(yield_lbac),
-             sd = sd(yield_lbac),
+  summarise( n = length(yield_buac),
+             min = min(yield_buac),
+             mean = mean(yield_buac),
+             max = max(yield_buac),
+             sd = sd(yield_buac),
              cv= (sd/mean) * 100
              ) %>%
   mutate(data = "raw") %>%
   dplyr::select(data, everything())
 
 #Filtered
-summary_filtered <- yield16_w_pf %>%
-  summarise(n = length(yield_lbac),
-            min = min(yield_lbac),
-            mean = mean(yield_lbac),
-            max = max(yield_lbac),
-            sd = sd(yield_lbac),
+summary_filtered <- yield16_w_sf %>%
+  summarise(n = length(yield_buac),
+            min = min(yield_buac),
+            mean = mean(yield_buac),
+            max = max(yield_buac),
+            sd = sd(yield_buac),
             cv = (sd/mean)*100
             ) %>%
   mutate(data = "clean") %>%
@@ -304,19 +331,19 @@ summary_raw %>%
 ```{r}
 ggplot() +
   geom_density(data = yield16_w,
-               aes(x= yield_lbac),
+               aes(x= yield_buac),
                fill = "blue",
                alpha = 1
                ) +
   geom_density(data = yield16_w_pf,
-               aes(x = yield_lbac),
+               aes(x = yield_buac),
                fill = "yellow",
                alpha = .3)
 ```
 ## Raw Yield Map
 ```{r}
 yieldmap_raw <- ggplot(yield16_w) +
-  geom_sf(aes(color = yield_lbac),
+  geom_sf(aes(color = yield_buac),
           size = .1) +
    labs(title = "Raw Yield Map",
        vjust = 0.5) +
@@ -335,8 +362,8 @@ yieldmap_raw
 ```{r}
 yieldmap_cleaned <- ggplot() +
   geom_sf(data = yield16_w_pf,
-          aes(color = yield_lbac),
-          size = .1) +
+          aes(color = yield_buac),
+          size = .2) +
   labs(title = "Cleaned Yield Map") +
   scale_color_viridis_b() +
   theme(axis.text = element_blank(),  # Remove axis text
@@ -350,8 +377,8 @@ yieldmap_cleaned
 
 ```{r}
 yieldmap_clean_int <- yield16_w_pf %>%
-  filter(yield_lbac !=0) %>% 
-  mapview(zcol = "yield_lbac",
+  filter(yield_buac !=0) %>% 
+  mapview(zcol = "yield_buac",
         col.regions = viridis(3),
         alpha.regions = 1,
         cex = .1,
@@ -411,7 +438,7 @@ yieldmap_cleaned +
 ```
 ## Inverse Distance Weight (IDW) 
 ```{r}
-idw_mod <- gstat(formula = yield_lbac ~1,
+idw_mod <- gstat(formula = yield_buac ~1,
                  data = yield_c
                  )
 idw_mod
@@ -436,7 +463,7 @@ ggplot() +
 idw_pred_v <- idw_pred %>% 
   st_as_sf(as_points = F,
            merge = F) %>% 
-  dplyr::select(ipyield_lbac = var1.pred)
+  dplyr::select(ipyield_buac = var1.pred)
 
 idw_pred_v
 ```
@@ -444,19 +471,23 @@ idw_pred_v
 ```{r idw_pred_v plot}
 ggplot()+
   geom_sf(data = idw_pred_v,
-          aes(fill = ipyield_lbac),
+          aes(fill = ipyield_buac),
           color = NA) +
-  scale_fill_viridis_c() +
-  theme_void()
+  scale_fill_viridis_b(name = "Yield\n(bu/ac)",
+                       breaks = seq(0, 250, by = 50)) +
+  labs(title = "Cleaned Interpolated Yield Map")+
+  geom_sf(data = boundary,
+          fill = NA) +
+mytheme_map
 ```
 
 ```{r interpolated distribution}
 ggplot()+
   geom_density(data = idw_pred_v,
-               aes(x = ipyield_lbac)
+               aes(x = ipyield_buac)
                ) +
   geom_density(data = yield_c,
-               aes(x = yield_lbac),
+               aes(x = yield_buac),
                color = "blue")
 
 ```
