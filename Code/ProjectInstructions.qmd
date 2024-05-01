@@ -5,7 +5,7 @@ format:
     embed-resources: true
     toc: true
     theme: cerulean
-author: FIRST LAST
+author: Sandesh Shrestha
 ---
 
 # A. Introduction  
@@ -150,76 +150,149 @@ You will be graded based on:
 Once you get started and as you progress in the project tasks, Natalie is following closely your work and has multiple questions for you:
 
 ## 1. What is the number of observations, minimum, mean, maximum, and standard deviation for the **raw** yield data (in bu/ac)? Show Natalie a plot with the density distribution of the **raw** yield data.  
-The number of observation for raw yield data (bu/ac) is 73574 with minimum value 0 bu/ac, mean 161.bu/ac, maximum 1785 bu/ac and standard deviation 103.1483 bu/ac. 
-
-```{r}
-summary(yield16_w$yield_buac)
-```
-![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cuf2feyka9yzl/000021.png)
+The number of observation for raw yield data (bu/ac) is 73574 with 
+Minimum : 0 bu/ac,  
+Mean    : 161.29 bu/ac,  
+Maximum : 1785.79 bu/ac and  
+Standard deviation : 103.14 bu/ac. 
+![](../Output/rawyield_density.png)
 
 
 ## 2. How many meters of negative buffer did you use for this field? Was that enough to remove low yielding data points near the field border? Show Natalie a map with the field border, points colored by raw yield data, and the buffer outline. 
 I used negative buffer of 40 meters for the field. I decided to go for the 40 meters after the hit and trial methods of different distance. The 40 meters buffer was able to remove most of the low yielding boundary points but wasn't able to remove them entirely. Greater value than 40 can be used for removing them entirely but in that case it would remove the good quality raw yield points from north parts of the field.
 
-![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cq7dvtudgzz76/000009.png)
+![](../Output/field_buffer.png)
 
 ## 3. What is the number of observations, minimum, mean, maximum, and standard deviation for the **cleaned** yield data (in bu/ac)? Show Natalie a plot with the density distribution of the **cleaned** yield data.  
-The number of observation for cleaned data 68358
-minimum : 0 bu/ac  
-maximum : 361.1 bu/ac 
-Mean    : 168 bu/ac
-Standard Deviation :  
+The number of observation for cleaned data  of Natalie's field is 68358.
+Minimum : 0 bu/ac  
+Maximum : 362.13 bu/ac 
+Mean    : 167.95 bu/ac  
+Standard Deviation : 78.58 bu/ac 
 
-![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/claaoj4my9fsm/000010.png)
+![](../Output/cleanyield_density.png)
 
 ## 4. When creating a grid for interpolation, what grid cell size did you use? Why did you select this size?  
-I used the grid with cell size of 10*10 meters. It isnot a universal standard but it is the default setting in gstat package which we are using here to interpolate the data.
-
-And a 10x10 cell size provides a good balance between spatial resolution and computational efficiency. Larger cell sizes can lead to a loss of spatial detail, while smaller cell sizes can increase the computational burden.  
+I used the grid with cell size of 10*10 meters. It is not a universal standard but it is the default setting in `gstat` package which we are using here to interpolate the data. And a 10x10 cell size provides a good balance between spatial resolution and computational efficiency. Larger cell sizes can lead to a loss of spatial detail, while smaller cell sizes can increase the computational burden.  
 
 ## 5. Show Natalie a map of the cleaned interpolated yield data (include the field boundary).  
-![](http://127.0.0.1:47015/chunk_output/B5B245B9dd632020/A34DB670/cgev9vll2n33i/000029.png)
+![](../Output/cleaninterpolated_map.png)
 
 ## 6. Show Natalie a map of the interpolated terrain variables (include the field boundary).  
-![](http://127.0.0.1:47015/chunk_output/s/89E42CF7/cdujn69597oj8/000016.png)
+![](../Output/terrain.png)
 
 ## 7. Show Natalie a map of the interpolated soil ECa variables (include the field boundary). 
-![](http://127.0.0.1:47015/chunk_output/s/B48A2E57/ck0b29txbhk1k/000008.png)
+![](../Output/soileca.png)
 
 ## 8. How many clusters/zones did you decide that this field needs? What metric did you use to make this decision? (check the `Code tips` section below for a note on this).  
+I used the `WSS` and `Silhouette width` algorithm and decided to go with 2 cluster for this field. I tried running the `NBclust` function as well despite the instruction not to use the function and it also giving me 2 as best cluster cluster for this field.  
+
 
 ## 9. When smoothing clusters, play around with a few matrix sizes (3x3, 5x5, 7x7) and summarizing functions (mean, median, maximum), then choose one option to continue. Show maps for all combinations of window size and summarizing function. After experimenting with them, which matrix size and summarizing function did you decide to keep? Why? Show Natalie a map of the final smoothed clusters/zones below (include field boundary).  
+I went through different matrix sizes (3x3, 5x5, 7x7 and 13x13) and summarizing functions (mean, median and maximum) to smooth the cluster. The mean function was giving better result as compared to other function as other function was incorporating many areas of other zone for smoothing the cluster.  
 
-## 10. Use yield data to validate the clusters. Show below a boxplot of cleaned interpolated yield values for the different clusters. Based on this boxplot, how would you characterize each cluster (e.g., cluster x is high yielding zone and cluster y is low yielding zone). **Extra credit**: include the analysis of variance letter separation on the boxplots.   
+I used different matrix sizes with summarizing function 'mean', 7x7 was giving smooth zone but it has small patch of cluster 2 in between cluster 1. So I went for 13x13 result, smoothing out both the clusters and visually demarcating the two different zones in the field which could be helpful for Natalie to perform variable rate management practices in those two different zones.  
 
+a. Smoothing zones using `mean` function:
+
+![](../Output/mean_filter.png)
+
+
+b. Smoothing zones using `minimum` function:
+![](../Output/min_filter.png)
+
+
+c. Smoothing zones using `maximum` function:
+![](../Output/max_filter.png)
+
+## 10. Use yield data to validate the clusters. Show below a boxplot of cleaned interpolated yield values for the different clusters. Based on this boxplot, how would you characterize each cluster (e.g., cluster x is high yielding zone and cluster y is low yielding zone). **Extra credit**: include the analysis of variance letter separation on the boxplots.  
+The zone 1 is low yielding zone and zone 2 is high yielding zone.
+![](../Output/zone_comaprison.png)
 ## 11. What was the proportion of high and low yield areas for each of the zones?  
+I classified the yield into 3 class:  
+a. Low yield (yield below first quartile)  
+b. Medium yield (yield between first quartile and third quartile)  
+c. High yield ( yield above third quartile)
 
-## 12. Now that we know the yield class of each cluster, how are they affected by soil ECa at different depths, and by elevation (e.g., high yield cluster has higher/lower eca, etc.)? Include below a boxplot to explore those relationships similarly to how we did in class. **Extra credit**: include the analysis of variance letter separation on the boxplots.   
+The zone 1 (low yielding zone) had 84.22% low yield point, 41.73% medium  point and 21.23% high yield point.  
+The zone 2 (high yielding zone) had 15.77% low yield point, 58.26% medium yield points and 78.76% high yield point.  
+
+![](../Output/yieldprop.png)
+ 
+
+## 12. Now that we know the yield class of each cluster, how are they affected by soil ECa at different depths, and by elevation (e.g., high yield cluster has higher/lower eca, etc.)? Include below a boxplot to explore those relationships similarly to how we did in class. **Extra credit**: include the analysis of variance letter separation on the boxplots.  
+It is shown that the elevation, slope and soil ECa of both depth (shallow and deep) have positive effect on the yield, meaning that the high yielding zone have higher elevation slope and soil ECA at both depth as compared to the low yielding zone.
+![](../Output/cluster_boxplot.png)
 
 
 ## 13. Were you able to validate clusters with temporal yield data? Explain why/why not.  
+Having only one year of yield data, like the information from 2016, poses limitations for validating clusters based on temporal yield data. This is primarily because comparing cluster performance over time requires data from multiple years. With only one year of data, it's impossible to determine whether the clusters will perform consistently well in future years or across different growing seasons. Moreover, the limited representation of environmental variation, inability to capture long-term trends, uncertainty in cluster stability, risk of over fitting, and the need for robustness testing further underscore the challenges in validating clusters with single-year data. In essence, while one year of yield data offers valuable insights, it's insufficient for robustly validating clusters based on temporal yield patterns. Multiple years of data are necessary to account for environmental variability, long-term trends, and to validate cluster stability and generalization across diverse conditions.
+  
+Hence it's crucial to gather yield data from several years to validate the clusters and guarantee their precision over time.  
 
 
-## 14. Given the number of years with available yield data, how certain are you in using these zones for multiple years into the future? What would you explain to Natalie about the validity of the zones, and what do you propose to overcome this in coming years? Answer as if you were speaking with Natalie.  
+## 14. Given the number of years with available yield data, how certain are you in using these zones for multiple years into the future? What would you explain to Natalie about the validity of the zones, and what do you propose to overcome this in coming years? Answer as if you were speaking with Natalie.
+Hello Natalie,  
+
+You know we have yield data of 2016 only. Relying solely on these zones for future years might be risky. While the yield data of 2016 gives us some insights spatial variability of the field. It might not be enough to confidently predict future yields. However, we can still use this data to create zones and identify patterns that could be useful for decision-making.
+
+Natalie, to ensure the validity of these zones over time, it's crucial to collect yield data for multiple years in the future. This will help us validate the zones and understand how consistent they are across different growing seasons. Additionally, we should consider incorporating other relevant data, such as soil type, weather patterns, and crop history, to enhance the accuracy of the zones. By combining multiple data sources and analyzing trends over several years, we can develop more reliable zones for future crop management decisions. This approach will help us adapt to changes in soil conditions, weather, and crop varieties, ensuring that our zoning system remains effective and relevant over time. 
+
+Natalie, zone based on the one year data will be beneficial to some extend but wee need to collect yield data in fututr to validate the zone and ensure our zoning remains effective and relevant over time.
+
+However, we have incorporated the other variables; soi
 
 ## 15. What was the yield potential (in bu/ac) of each zone?  
+The yield potential of this field ;  
+a. High yielding zone : 218.41 bu/ac  
+b. Low yielding zone  : 209.20 bu/ac  
 
 
 ## 16. How did you determine the total N rate (what algorithm, from which website)?  
+To determine the total N rate, I used yield potential as the major determining factor. I went to UGFertex website (https://aesl.ces.uga.edu/calculators/ugfertex/) where I calculated the required N rate by checking this points.  
+a. Crop : Corn-Irrigated  
+b. Previous season crop : Peanuts (Virginia or Spreader or Runner type didn't matter the reuqired rate).
+c. Soil Type : Coastal Plain
+d. Yield Goal : (218 bu/ac and 209.20 bu/ac)
+  
+Total N rate for high yielding zone : 230 lbs/ac
+Total N rate for low yielding zone  : 220 lbs/ac  
+
 
 ## 17. What was the in-season N rate (in lbs N/ac) of each zone? Show below a map with this information (include field boundary).  
+The in-season N rate (in lbs N/ac) for the  
+a. Zone 1 (Blue)   : 165 lbs N/ac and  
+b. Zone 2 (Orange) : 175 lbs N/ac 
+![](../Output/VRN_Nac.png)
 
 
 ## 18. What was the in-season UAN28% rate (in gal/ac) of each zone? Show below a map with this information (include field boundary).  
+The in-season UAN28% rate for the two zone for this field were found to be  
+a. High yielding zone (Orange) : 58 gal/ac and  
+b. Low yielding zone (Blue)    : 55 gal/ac.  
+![](../Output/VRN_galac.png)
 
 ## 19. Based on the answers above, would you recommend Natalie to treat her field using variable rate N application? Why/why not? Explain as if you were speaking with her.  
+Hi Natalie,
+
+Given the different nitrogen rates for the two zones in your field, it could be beneficial to think about using variable rate nitrogen (N) application. This approach tailors the amount of nitrogen applied to each zone based on its specific requirements. This can enhance crop yield while minimizing nitrogen use, which is both cost-effective and environmentally friendly.
+
+For instance, if the high-yielding zone needs 175 pounds/acre of nitrogen and the low-yielding zone requires 165 pounds/acre, variable rate N application allows you to apply these amounts to each zone individually. This contrasts with applying a uniform rate of 170 pounds/acre across the entire field. Even though the difference in N rates may seem small at 10 pounds/acre, this can lead to significant reductions in nitrogen application when applied to the entire field area, resulting in improved economic efficiency. Considering the nitrogen rates observed in your field, exploring variable rate N application could be a valuable strategy to optimize yield and reduce nitrogen application.
 
 ## 20. Regardless of your recommendation above, Natalie will still need to apply N to this field. How many gallons of UAN28% would Natalie need to order for her in-season N application for this field?  
+In order to apply in-season N to this field, a total of 17,392.68 gallons of UAN 28% is required including 20% extra than actual requirement. 
+
 
 ## 21. **Extra credit** Tell me what was your most favorite part of this entire course. Explain in detail why.  
+I absolutely enjoyed working the practical applciation of R programming within the context of precision agriculture during this course. Exploring the intocacies of data analysis and visualizing using the R was undoubtedly the highlight of the entire program for me.  
+
+The course is well designed, with clear and comprehensive, demonstrating the real-world application of precision agriculture. From the initial steps of data collection to analyzing and transforming into actionable insights such as creating management zone and implementing variable rate applications, every aspect was covered with theoretical concept and programming knowledge.  
+
+The emphasis on learning from mistakes and the ample opportunities provided to rectify errors in exams and assignments ensured a supportive learning environment where I could truly thrive. Overall, the course not only enhanced my understanding of precision agriculture but also equipped me with valuable skills in data analysis and technology that are pivotal for driving innovation in the field.
+
 
 ## 22. **Extra credit** Tell me what was your least favorite part of this entire course. Explain in detail why.  
-
+To be honest, I don't have any least favorite part or section course that I didn't enjoy. I wish we had chapter about drone image processing and image analysis in R. 
 
 # E. Submitting and deadline  
 All I need is the rendered version of **this script**. 

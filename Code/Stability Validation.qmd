@@ -170,3 +170,10 @@ ggsave("../Output/allmaps.png",
 ```
 
 
+#Validation
+
+```{r boxplot}
+all_v %>% 
+  mutate()
+```
+

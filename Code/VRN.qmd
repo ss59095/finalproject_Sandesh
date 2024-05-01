@@ -1,0 +1,134 @@
+---
+title: "Variable Rate"
+author: "Sandesh Shrestha"
+format: html
+editor: visual
+---
+
+# Setup
+```{r}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(sf) #vector manipulation
+library(ggplot2)
+library(viridis)
+library(ggthemes)
+```
+
+```{r defining map theme}
+mytheme_map <- 
+  theme_map()+
+  theme(legend.position = "right",
+        panel.background = element_rect(fill="lightgray",
+                                        color=NA),
+        plot.background = element_rect(fill="lightgray",
+                                       color=NA),
+        legend.title = element_text(size=14),
+        legend.text = element_text(size=12))+
+  theme(plot.title = element_text(size = 16, hjust = 0.5))
+
+```
+
+# VRN
+```{r}
+zone_yield <- read_sf("../Output/") %>% 
+  dplyr::select(yield = ipyield_lbac, zone, geometry)
+
+zone_yield
+```
+```{r}
+zone_yield %>%
+  pivot_longer(yield) %>%
+  ggplot(aes(x = value, fill = zone))+
+  geom_density(alpha = .6)+
+  geom_vline(xintercept = vrn$yieldpotential)
+```
+
+
+```{r}
+vrn <- zone_yield %>% 
+  pivot_longer(cols = yield) %>% 
+  group_by(zone) %>% 
+  summarise(yieldpotential = quantile(value,
+                                      probs = .9)) %>% 
+  mutate(totalnrate_lbsac = c(230, 220)) %>% 
+  mutate(pp_total_nrate_lbsac = totalnrate_lbsac * .25) %>% 
+  mutate(is_totalnrate_lbsac = totalnrate_lbsac - 55) %>% 
+  mutate(uanrate_galac = is_totalnrate_lbsac/3,
+         uanrate_galac = round(uanrate_galac,0))
+    
+  
+
+vrn
+```
+```{r tottal volume of UAN per area}
+abc <- vrn %>% 
+  mutate(area_m2 = st_area(.)) %>% 
+  mutate(area_ac = as.numeric(area_m2/4047)) %>% 
+  
+  mutate(uan_gal = (uanrate_galac * area_ac) * 1.2) %>% 
+  summarise(totaluan_gal = sum(uan_gal))
+
+abc
+```
+# Rx Map
+```{r}
+vrn_v <- zone_yield %>% 
+  left_join(vrn %>% 
+              st_drop_geometry())
+
+vrn_v
+```
+```{r}
+boundary <- read_sf("../Data/boundary/DR1 boundary.shp")
+```
+
+```{r}
+vrn_v %>% 
+  mutate(is_nrate = factor(is_totalnrate_lbsac)) %>% 
+  ggplot() +
+  geom_sf(aes(fill = is_nrate,
+              color = is_nrate)) +
+  labs(title = "In-Season VRN",
+       fill = "N rate\n(N/ac)",
+       color = "N rate\n(N/ac)") +
+  geom_sf(data = boundary,
+          size = 4,
+          fill = NA) +
+  mytheme_map
+
+ggsave("../Output/VRN_Nac.png",
+       width = 10,
+       height = 6,
+       bg = "lightgray")
+```
+
+
+
+
+```{r vrn plot}
+vrn_v %>%
+  mutate(uanrate_galac=factor(uanrate_galac)) %>%
+  ggplot()+
+  geom_sf(aes(fill = uanrate_galac,
+              color = uanrate_galac)) +
+
+  labs(title="VRN Rx - UAN 28% rate",
+       fill="UAN rate\n(gal/ac)",
+       color="UAN rate\n(gal/ac)")+
+theme(plot.title = element_text(hjust = 0.5)
+                                 )+
+  geom_sf(data = boundary,
+          fill = NA)+
+  mytheme_map
+
+ggsave("../Output/VRN_galac.png",
+      width = 10, 
+       height = 6, bg = "lightgrey")
+```
+
+
+
+
+

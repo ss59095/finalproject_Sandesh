@@ -6,6 +6,7 @@ editor: visual
 ---
 
 # Setup
+
 ```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(tidyr)
@@ -24,6 +25,7 @@ library(gstat)
 ```
 
 # Import Data
+
 ```{r}
 all_v <- read_sf("../Output/all_v.geojson")
 all_v
@@ -35,6 +37,7 @@ boundary <- read_sf("../Data/boundary/DR1 boundary.shp") %>%
 
 boundary
 ```
+
 ```{r}
 all_v_n <- all_v %>% 
   drop_na() %>% 
@@ -47,7 +50,8 @@ all_v_n <- all_v %>%
 all_v_n
 ```
 
-# Defining K 
+# Defining K
+
 ```{r}
 mod_km <- kmeans(all_v_n %>% 
                    st_drop_geometry(),
@@ -56,13 +60,15 @@ mod_km <- kmeans(all_v_n %>%
                  )
 mod_km
 ```
+
 ```{r finding k - wss method}
-fviz_nbclust(all_v_n %>% 
-             st_drop_geometry(),
-             method = "wss",
-             k.max = 10,
-             FUNcluster = kmeans)
+#fviz_nbclust(all_v_n %>% 
+             #st_drop_geometry(),
+             #method = "wss",
+             #k.max = 10,
+             #FUNcluster = kmeans)
 ```
+
 ```{r finding k - silhouette method}
 # Silhouette width
 fviz_nbclust(all_v_n %>%
@@ -74,6 +80,7 @@ fviz_nbclust(all_v_n %>%
 ```
 
 let's go with 4 clusters
+
 ```{r}
 mod_km4 <-  kmeans(all_v_n %>% 
                      st_drop_geometry(),
@@ -105,6 +112,7 @@ ggplot() +
   theme(plot.title = element_text(color = "blue",
                                   hjust = 0.5))
 ```
+
 ```{r}
 grid_r <-  boundary %>% 
   st_make_grid(cellsize = 10) %>% 
@@ -114,6 +122,171 @@ grid_r <-  boundary %>%
   st_crop(boundary)
 grid_r
 ```
+
+```{r all plot in once}
+library(sf)
+library(stars)
+library(ggplot2)
+library(gstat)
+library(viridis)
+
+# Define the matrix sizes
+matrix_sizes <- c(3, 5, 7, 13)
+
+# Define a list to store plots
+plots <- list()
+
+# Loop through matrix sizes
+for (size in matrix_sizes) {
+  # Define the functions to be used in the loop
+  functions <- c("mean", "min", "max")
+  
+  # Loop through functions
+  for (fun in functions) {
+    zone_s <- zone_df %>% 
+      dplyr::select(cluster) %>% 
+      st_cast("POINT") %>% 
+      st_sfc2xy() %>% 
+      st_as_stars() %>% 
+      focal2(w = matrix(1, size, size),
+             fun = fun,
+             na.rm = TRUE
+      ) %>% 
+      st_as_sf() %>% 
+      gstat(formula = cluster ~ 1,
+            data = .) %>% 
+      predict(grid_r) %>% 
+      st_as_sf() %>% 
+      mutate(cluster = round(var1.pred, 0)) %>% 
+      mutate(cluster_f = factor(cluster))
+    
+    # Create the plot
+    plot_title <- paste("Smoothed zones, ", size, "x", size, ",", fun)
+    plots[[paste("plot_", size, "x", size, "_", fun, sep = "")]] <- ggplot() +
+      geom_sf(data = zone_s, aes(fill = cluster_f), color = NA) +
+      geom_sf(data = boundary, fill = NA) +
+      scale_fill_viridis_d() +
+      labs(title = plot_title,
+           fill = "Cluster") +
+      theme_minimal() +
+      theme(plot.title = element_text(color = "blue"))
+  }
+}
+
+# Print or save the plots
+for (plot_name in names(plots)) {
+  print(plots[[plot_name]])
+  # Save the plot if needed
+  # ggsave(filename = paste(plot_name, ".png", sep = ""), plot = plots[[plot_name]])
+}
+
+```
+```{r}
+library(sf)
+library(stars)
+library(ggplot2)
+library(gstat)
+library(viridis)
+
+# Define the matrix sizes
+matrix_sizes <- c(3, 5, 7, 13)
+
+# Create an empty list to store plots
+mean_plots <- list()
+
+# Loop through matrix sizes
+for (size in matrix_sizes) {
+  zone_s <- zone_df %>% 
+    dplyr::select(cluster) %>% 
+    st_cast("POINT") %>% 
+    st_sfc2xy() %>% 
+    st_as_stars() %>% 
+    focal2(w = matrix(1, size, size),
+           fun = "mean",
+           na.rm = TRUE
+    ) %>% 
+    st_as_sf() %>% 
+    gstat(formula = cluster ~ 1,
+          data = .) %>% 
+    predict(grid_r) %>% 
+    st_as_sf() %>% 
+    mutate(cluster = round(var1.pred, 0)) %>% 
+    mutate(cluster_f = factor(cluster))
+  
+  # Create the plot for the mean function
+  plot_title <- paste("Smoothed zones, ", size, "x", size, ", mean")
+  mean_plots[[paste("plot_", size, "x", size, "_mean", sep = "")]] <- ggplot() +
+    geom_sf(data = zone_s, aes(fill = cluster_f), color = NA) +
+    geom_sf(data = boundary, fill = NA) +
+    scale_fill_colorblind() +
+    labs(title = plot_title,
+         fill = "Cluster") +
+    theme_void() +
+    theme(plot.title = element_text(color = "blue"))
+}
+
+# Combine plots for mean function
+combine_mean_plot <- cowplot::plot_grid(plotlist = mean_plots, ncol = 2)
+
+# Print or save the combined plot
+print(combine_mean_plot)
+# Save the plot if needed
+# ggsave(filename = "combined_mean_plot.png", plot = combine_mean_plot)
+ggsave("../Output/mean_filter.png",
+       width = 10,
+       height = 6)
+```
+
+```{r}
+# Define the matrix sizes
+matrix_sizes <- c(3, 5, 7, 13)
+
+# Create an empty list to store plots
+max_plots <- list()
+
+# Loop through matrix sizes
+for (size in matrix_sizes) {
+  zone_s <- zone_df %>% 
+    dplyr::select(cluster) %>% 
+    st_cast("POINT") %>% 
+    st_sfc2xy() %>% 
+    st_as_stars() %>% 
+    focal2(w = matrix(1, size, size),
+           fun = "max",
+           na.rm = TRUE
+    ) %>% 
+    st_as_sf() %>% 
+    gstat(formula = cluster ~ 1,
+          data = .) %>% 
+    predict(grid_r) %>% 
+    st_as_sf() %>% 
+    mutate(cluster = round(var1.pred, 0)) %>% 
+    mutate(cluster_f = factor(cluster))
+  
+  # Create the plot for the min function
+  plot_title <- paste("Smoothed zones, ", size, "x", size, ", maximum")
+  max_plots[[paste("plot_", size, "x", size, "_max", sep = "")]] <- ggplot() +
+    geom_sf(data = zone_s, aes(fill = cluster_f), color = NA) +
+    geom_sf(data = boundary, fill = NA) +
+    scale_fill_colorblind() +
+    labs(title = plot_title,
+         fill = "Cluster") +
+    theme_void() +
+    theme(plot.title = element_text(color = "blue"))
+}
+
+# Combine plots for mean function
+combine_max_plot <- cowplot::plot_grid(plotlist = max_plots, ncol = 2)
+
+# Print or save the combined plot
+print(combine_max_plot)
+# Save the plot if needed
+# ggsave(filename = "combined_mean_plot.png", plot = combine_mean_plot)
+ggsave("../Output/max_filter.png",
+       width = 10,
+       height = 6)
+```
+
 ```{r}
 zone_s <- zone_df %>% 
   dplyr::select(cluster) %>% 
@@ -134,13 +307,15 @@ zone_s <- zone_df %>%
 
 zone_s  
 ```
+
 ```{r}
 zone_s %>%
   ggplot()+
   geom_sf(aes(fill = cluster_f), color = NA)+ 
     geom_sf(data = boundary, fill=NA)+
   scale_fill_colorblind()+
-  labs(title="Smoothed zones, 13x13, mean")+
+  labs(title="Smoothed zones, 13x13, mean",
+       fill = "Cluster")+
   theme_map()+
   theme(plot.title = element_text(color="blue"))
 
@@ -148,6 +323,7 @@ ggsave("../output/zonesmoothed_13x13_mean.png",
        width = 3, 
        height = 4)
 ```
+
 ```{r}
 zone_s_df <-  all_v %>% 
   st_join(zone_s,
@@ -168,29 +344,166 @@ zone_s_df %>%
   stat_compare_means(label = "p.format",
                      hjust = -.1,
                      vjust=1)+
-  theme(legend.position = "none")
+  theme(legend.position = "none") 
 ```
 
 ```{r}
-zone_s_df %>% 
+plot1 <- zone_s_df %>% 
   pivot_longer(cols = ipyield_lbac) %>% 
   ggplot(aes(x=cluster_f, y=value, color=cluster_f))+
   geom_boxplot(show.legend = F)+
   scale_color_colorblind()+
-  facet_wrap(~name, scales="free_y", ncol=3)+
+  #facet_wrap(~name, scales="free_y", ncol=3)+
   stat_compare_means(label = "p.format",
                      hjust = -.1,
                      vjust=1)+
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  labs(x = "Zone",
+       y = "Yield (bu/ac)")
 ```
+```{r, warning=FALSE, message=FALSE}
+library(emmeans)
+library(multcomp)
+library(purrr)
+library(car)
+
+options(contrasts = c("contr.sum", "contr.poly"))
+crd_mod <-  lm(ipyield_lbac ~ cluster_f,
+               data = zone_s_df)
+
+Anova(crd_mod, type = 3)
+crd_means <- emmeans(crd_mod,
+                     ~cluster_f)
+crd_cld <- cld(crd_means,
+               reversed = T,
+               adjust = "none",
+               Letters = letters) %>% 
+  as.data.frame() %>% 
+  mutate(letter = trimws(.group))
+crd_cld
+
+plot123 <- ggplot( data = zone_s_df,
+                   aes(color = cluster_f)) +
+  geom_boxplot(data = zone_s_df,
+               aes(x = cluster_f,
+                   y = ipyield_lbac))+
+  geom_label(data = crd_cld,
+             aes(x = cluster_f,
+                 y = emmean,
+                 label = letter)) +
+  labs(x = "Zone",
+       y = "Yield (bu/ac)"
+       ) +
+  scale_color_colorblind() +
+  theme(legend.position = "none")
+
+ggsave("../Output/zone_comaprison.png",
+       width = 10, 
+       height = 6)
+```
+
 # Exporting clusters
+
 ```{r}
 zone_s_df %>% 
   mutate(zone = case_when(
-    cluster_f == "1" ~ "high",
-    cluster_f == "2" ~ "low"
+    cluster_f == "2" ~ "high",
+    cluster_f == "1" ~ "low"
   )) %>% 
-  write_sf("../Output/zone_s.geojson",
+write_sf("../Output/zone_s.geojson",
            delete_dsn = T)
 ```
 
+```{r}
+yield prop <- zone_s_df %>% 
+  mutate
+  mutate(stclass = case)
+  
+summary(zone_s_df%ipyield)
+```
+
+
+# ANOVA
+
+## Packages
+
+```{r}
+library(emmeans)
+library(multcomp)
+library(purrr)
+library(car)
+```
+
+```{r}
+anovas <- zone_df %>% 
+  pivot_longer(elev_m:deep_eca) %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(mod = map(data,
+                   ~lm(data = .x,
+                       formula = value ~ cluster)
+                   )) %>% 
+  mutate(anova = map(mod,
+                     ~Anova(.x))) %>% 
+  mutate(cld = map(mod,
+                   ~emmeans(.x, ~cluster) %>% 
+                     cld(reversed = T,
+                         alpha = 0.05,
+                         Letters = letters) %>% 
+                     as.data.frame() %>% 
+                     mutate(letter = trimws(.group))
+                   
+                   )) %>% 
+  unnest(cld) %>% 
+  ungroup() %>% 
+  mutate(name = factor(name,
+                       levels = c("elev_m",
+                                  "slope",
+                                  "aspect",
+                                  "shallow_eca",
+                                  "deep_eca")))
+
+anovas
+```
+
+```{r boxplots and letters}
+plot2 <- zone_df %>% 
+  mutate(cluster = factor(cluster,
+                          levels = c (1,
+                                      2)
+                          )) %>% 
+  pivot_longer(cols = elev_m:deep_eca) %>% 
+  mutate(name = factor(name,
+                       levels = c("elev_m",
+                                  "slope",
+                                  "aspect",
+                                  "shallow_eca",
+                                  "deep_eca"
+                                  )
+                         
+                         )) %>% 
+ggplot(aes(x = cluster,
+           y = value)) +
+  geom_boxplot(aes(color = cluster)) +
+  theme(legend.position = "none")+
+  labs(x = "Zone") +
+  facet_wrap(~name,
+             scales = "free_y") +
+  geom_label(data = anovas,
+             aes(x = cluster,
+                 y = emmean,
+                 label = letter)) +
+  scale_color_colorblind()
+```
+
+```{r}
+library(patchwork)
+merge_plot <-  plot123 + plot2
+
+merge_plot
+
+ggsave("../Output/cluster_boxplot.png",
+       width = 10,
+       height = 6,
+       bg = "lightgray")
+```
